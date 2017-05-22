@@ -1,0 +1,54 @@
+
+export MACHINE_DRIVER=amazonec2
+export AWS_ACCESS_KEY_ID=AKIAIRLNSTJUPRAPLISA
+export AWS_SECRET_ACCESS_KEY=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
+export AWS_DEFAULT_REGION=us-west-2
+export AWS_INSTANCE_TYPE=t2.nano
+
+for N in $(seq 1 5); do
+     docker-machine create node$N
+     docker-machine ssh node$N sudo usermod -aG docker ubuntu
+done
+
+aws ec2 authorize-security-group-ingress --group-name docker-machine --protocol -1 --cidr 0.0.0.0/0
+
+docker-machine ssh node1
+
+
+# Docker Compose
+cd
+sudo curl -L \
+ https://github.com/docker/compose/releases/download/1.10.0/docker-compose-$(uname -s)-$(uname -m) \
+-o /usr/local/bin/docker-compose
+
+chmod +x /usr/local/bin/docker-compose
+docker-compose --version
+
+#Docker-machine
+
+curl -L https://github.com/docker/machine/releases/download/v0.9.0/docker-machine-`uname -s`-`uname -m` \
+> /usr/local/bin/docker-machine && \
+chmod +x /usr/local/bin/docker-machine
+
+docker-machine --version
+
+
+
+# Crea un volumen de docker (para compartir storage en el cluster y el driver)
+
+docker volume create --name dpa_store --opt type=none \
+ --opt device=PATH_COMPLETO/spark-ejemplo --opt o=bind ; \
+
+docker-compose up -d
+
+
+docker run -it --name pyspark-ipython \ 
+	--network sparkejemplo_dpa_net \ 
+	--volume dpa_store:/spark-ejemplo \
+	dpa/spark-client \ 
+	/bin/bash
+
+
+pip install ipython pandas click # Instala paquetes que usaremos
+PYSPARK_DRIVER_PYTHON=/usr/local/bin/ipython pyspark --master spark://master:7077
+
